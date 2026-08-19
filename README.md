@@ -32,7 +32,7 @@ markdown-buddy-paul/
 2. Clone this repository:
 
 ```bash
-git clone https://github.com/<your-username>/markdown-buddy-paul.git
+git clone https://github.com/paulconcord-byte/markdown-buddy-paul.git
 cd markdown-buddy-paul
 ```
 
