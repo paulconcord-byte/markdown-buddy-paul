@@ -1,0 +1,142 @@
+---
+title: "Documentation for analysis.R — Monthly Sales Analysis (Synthetic Data)"
+author: "Paul"
+date: "2026-08-19"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    theme: cosmo
+    highlight: tango
+---
+
+> **AI Assistance Declaration**: I used Claude (Anthropic, Claude Fable 5, 2026-08-19) for Markdown formatting suggestions and section organization of this document. Prompts used: "Here's my R script description. Suggest Markdown formatting and code block examples.", "Add syntax highlighting and improve section organization (e.g., # Purpose, ## Inputs, ## Outputs).", and "Is the Markdown consistent with RMarkdown best practices?". I verified outputs by knitting this file and checking that every chunk runs without errors. All final calculations are done by myself. I am responsible for the accuracy and originality of this work.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Purpose
+
+`analysis.R` performs a monthly sales analysis on a **synthetic** retail dataset. It loads the data, checks it for missing values, engineers a `revenue` variable, computes summary statistics, aggregates revenue by month and by product category, and saves the results (two CSV files and one chart) to an `output/` folder.
+
+The script is written in **base R only**, so it runs on any standard R installation with no extra packages.
+
+## Inputs
+
+The script expects a single input file, relative to the project root:
+
+| Input                      | Format | Description                                        |
+|----------------------------|--------|----------------------------------------------------|
+| `data/synthetic_sales.csv` | CSV    | 300 synthetic transactions, Jan–Jun 2026, 7 columns |
+
+The dataset columns are `transaction_id`, `date`, `category`, `product_id`, `units_sold`, `unit_price`, and `region`. It was generated with `set.seed(400)`, so it is fully reproducible and contains **no real or personal data**.
+
+## Outputs
+
+| Output                            | Description                                 |
+|-----------------------------------|---------------------------------------------|
+| `output/monthly_revenue.csv`      | Total revenue per month                     |
+| `output/category_summary.csv`     | Revenue and units sold per product category |
+| `output/monthly_revenue_plot.png` | Bar chart of monthly revenue                |
+
+The script also prints row counts, a structure summary, and a table of summary statistics to the console.
+
+# How the Script Works
+
+## Step 1 — Load the data
+
+The CSV is read with `read.csv()` and the `date` column is converted from text to R's `Date` class so it can be formatted by month later.
+
+```{r load-data}
+sales <- read.csv("data/synthetic_sales.csv", stringsAsFactors = FALSE)
+sales$date <- as.Date(sales$date)
+head(sales)
+```
+
+## Step 2 — Basic data checks
+
+Before any calculation, the script confirms how many rows were loaded and that there are no missing values.
+
+```{r data-checks}
+cat("Rows loaded:", nrow(sales), "\n")
+cat("Missing values:", sum(is.na(sales)), "\n")
+```
+
+## Step 3 — Feature engineering
+
+Two derived columns are added: `revenue` (units × price) and `month` (a `YYYY-MM` key used for aggregation).
+
+```{r feature-engineering}
+sales$revenue <- sales$units_sold * sales$unit_price
+sales$month   <- format(sales$date, "%Y-%m")
+```
+
+## Step 4 — Summary statistics
+
+A small data frame collects the headline numbers: total revenue, mean revenue per sale, median units sold, and the transaction count.
+
+```{r summary-stats}
+summary_stats <- data.frame(
+  metric = c("Total revenue", "Mean revenue per sale",
+             "Median units sold", "Number of transactions"),
+  value  = c(round(sum(sales$revenue), 2),
+             round(mean(sales$revenue), 2),
+             median(sales$units_sold),
+             nrow(sales))
+)
+knitr::kable(summary_stats, caption = "Summary statistics (synthetic data)")
+```
+
+## Step 5 — Aggregations
+
+`aggregate()` groups revenue by month, and revenue plus units sold by category. Categories are sorted by revenue, highest first.
+
+```{r aggregations}
+monthly_revenue <- aggregate(revenue ~ month, data = sales, FUN = sum)
+monthly_revenue$revenue <- round(monthly_revenue$revenue, 2)
+
+category_summary <- aggregate(
+  cbind(revenue, units_sold) ~ category, data = sales, FUN = sum
+)
+category_summary$revenue <- round(category_summary$revenue, 2)
+category_summary <- category_summary[order(-category_summary$revenue), ]
+
+knitr::kable(category_summary, row.names = FALSE,
+             caption = "Revenue and units sold by category")
+```
+
+## Step 6 — Save outputs and plot
+
+The results are written to the `output/` folder, and a bar chart of monthly revenue is drawn with base R's `barplot()`.
+
+```{r plot, fig.width=8, fig.height=5, fig.cap="Monthly revenue from the synthetic dataset"}
+barplot(monthly_revenue$revenue,
+        names.arg = monthly_revenue$month,
+        col       = "#4C72B0",
+        las       = 2,
+        main      = "Monthly Revenue (Synthetic Data)",
+        ylab      = "Revenue ($)")
+```
+
+In `analysis.R`, this chart is saved to `output/monthly_revenue_plot.png` via `png()` and `dev.off()`, and the two summary tables are saved with `write.csv()`.
+
+# How to Run
+
+From the project root, either source the script inside R:
+
+```r
+source("analysis.R")
+```
+
+or run it from a terminal:
+
+```bash
+Rscript analysis.R
+```
+
+# Session Info
+
+```{r session-info}
+sessionInfo()
+```
